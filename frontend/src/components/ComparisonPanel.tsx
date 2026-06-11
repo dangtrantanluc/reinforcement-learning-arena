@@ -4,6 +4,7 @@ interface Props {
   metrics: MetricsState;
   ppoWins: number;
   dynaqWins: number;
+  dqnWins?: number;
   evalResult: EvaluateResult | null;
 }
 
@@ -36,37 +37,56 @@ function VersusBar({
   );
 }
 
-export default function ComparisonPanel({ metrics, ppoWins, dynaqWins, evalResult }: Props) {
+export default function ComparisonPanel({ metrics, ppoWins, dynaqWins, dqnWins, evalResult }: Props) {
+  const hasDqn = dqnWins !== undefined;
+  const winBars: { name: string; rate: number; bg: string; text: string }[] = [
+    { name: 'PPO', rate: metrics.ppo_win_rate, bg: 'bg-ppo', text: 'text-ppo' },
+    { name: 'Dyna-Q', rate: metrics.dynaq_win_rate, bg: 'bg-dynaq', text: 'text-dynaq' },
+  ];
+  if (hasDqn) winBars.push({ name: 'DQN', rate: metrics.dqn_win_rate ?? 0, bg: 'bg-dqn-c', text: 'text-dqn-c' });
+
   return (
     <div className="card p-4">
       <div className="mb-3 flex items-center justify-between">
         <div>
           <p className="panel-title">Head-to-Head</p>
-          <p className="text-sm font-semibold text-ink">PPO vs Dyna-Q</p>
+          <p className="text-sm font-semibold text-ink">{hasDqn ? 'PPO vs Dyna-Q vs DQN' : 'PPO vs Dyna-Q'}</p>
         </div>
         <p className="font-mono text-sm">
           <span className="font-bold text-ppo">{ppoWins}</span>
           <span className="text-sub"> · </span>
           <span className="font-bold text-dynaq">{dynaqWins}</span>
+          {hasDqn && (<><span className="text-sub"> · </span><span className="font-bold text-dqn-c">{dqnWins}</span></>)}
         </p>
       </div>
 
-      <div className="space-y-3">
-        <VersusBar
-          label="Win rate (last 100)"
-          ppo={metrics.ppo_win_rate}
-          dynaq={metrics.dynaq_win_rate}
-          fmt={(v) => `${(v * 100).toFixed(0)}%`}
-        />
-        <VersusBar label="Avg reward" ppo={metrics.ppo_avg_reward} dynaq={metrics.dynaq_avg_reward} />
-      </div>
+      {hasDqn ? (
+        <div className="space-y-2.5">
+          {winBars.map((b) => (
+            <div key={b.name}>
+              <div className="mb-1 flex justify-between text-xs">
+                <span className={`font-medium ${b.text}`}>{b.name}</span>
+                <span className="font-mono font-semibold text-ink">{(b.rate * 100).toFixed(0)}%</span>
+              </div>
+              <div className="h-2.5 overflow-hidden rounded-full bg-bg">
+                <div className={`h-full rounded-full ${b.bg}`} style={{ width: `${b.rate * 100}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <VersusBar label="Win rate (last 100)" ppo={metrics.ppo_win_rate} dynaq={metrics.dynaq_win_rate} fmt={(v) => `${(v * 100).toFixed(0)}%`} />
+          <VersusBar label="Avg reward" ppo={metrics.ppo_avg_reward} dynaq={metrics.dynaq_avg_reward} />
+        </div>
+      )}
 
       <div className="mt-3 rounded-lg bg-bg/60 px-3 py-2 text-center text-[11px] text-sub">
         Draw rate: <span className="font-mono font-semibold text-ink">{(metrics.draw_rate * 100).toFixed(0)}%</span>
       </div>
 
       {evalResult && (
-        <div className="mt-4 rounded-lg border border-line bg-white p-3">
+        <div className="mt-4 rounded-lg border border-line bg-surface p-3">
           <p className="panel-title mb-2">
             Evaluation ({evalResult.episodes} eps · exploration off)
           </p>

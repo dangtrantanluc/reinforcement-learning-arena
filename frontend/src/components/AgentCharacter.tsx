@@ -8,10 +8,11 @@ interface Props {
   size?: number;
 }
 
-// PPO = blue, Dyna-Q = purple. Label P / D on the body.
+// PPO = blue, Dyna-Q = purple, DQN = teal. Label P / D / Q on the body.
 const THEME: Record<AgentId, { body: string; label: string }> = {
   ppo: { body: '#2563eb', label: 'P' },
   dynaq: { body: '#7c3aed', label: 'D' },
+  dqn: { body: '#0d9488', label: 'Q' },
 };
 
 /**

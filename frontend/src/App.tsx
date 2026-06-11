@@ -8,30 +8,15 @@ import ActionPanel from './components/ActionPanel';
 import TrainingCharts from './components/TrainingCharts';
 import TrainingLog from './components/TrainingLog';
 import SettingsPanel from './components/SettingsPanel';
+import HeatmapPanel from './components/HeatmapPanel';
+import ReplayBrowser from './components/ReplayBrowser';
 import OfflineNotice from './components/OfflineNotice';
-import { useArenaState } from './hooks/useArenaState';
-import { CELL, type Winner } from './types';
-
-type Mood = 'idle' | 'moving' | 'reward' | 'danger' | 'winner';
-
-/** Derive an agent's mood from the cell it stands on + win state. */
-function moodFor(
-  prevCellCode: number | undefined,
-  running: boolean,
-  isWinner: boolean,
-): Mood {
-  if (isWinner) return 'winner';
-  if (!running) return 'idle';
-  if (prevCellCode === CELL.REWARD) return 'reward';
-  if (prevCellCode === CELL.DANGER) return 'danger';
-  return 'moving';
-}
+import { useArenaStream } from './hooks/useArenaStream';
+import { useTheme } from './hooks/useTheme';
+import type { Winner } from './types';
 
 function Section({
-  id,
-  title,
-  innerRef,
-  children,
+  id, title, innerRef, children,
 }: {
   id: string;
   title?: string;
@@ -47,9 +32,15 @@ function Section({
 }
 
 export default function App() {
-  const { state, connected, busy, evalResult, start, pause, reset, evaluate } = useArenaState();
-  const [active, setActive] = useState<NavKey>('arena');
+  const arena = useArenaStream();
+  const {
+    current, ppo, dynaq, dqn, metrics, history, logs, running, connected, queueLen,
+    busy, evalResult, heatmaps,
+    start, pause, reset, setSpeed, saveCheckpoint, loadCheckpoint, evaluate, fetchHeatmaps,
+  } = arena;
 
+  const { theme, toggle: toggleTheme } = useTheme();
+  const [active, setActive] = useState<NavKey>('arena');
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const register = (key: string) => (el: HTMLElement | null) => {
     sectionRefs.current[key] = el;
@@ -61,30 +52,13 @@ export default function App() {
     sectionRefs.current[key]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  // Refresh heatmaps when the Metrics section is viewed.
   useEffect(() => {
-    const root = scrollRoot.current;
-    if (!root) return;
-    const obs = new IntersectionObserver(
-      (entries) => {
-        const v = entries.filter((e) => e.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        if (v) setActive(v.target.id as NavKey);
-      },
-      { root, threshold: 0.4 },
-    );
-    Object.values(sectionRefs.current).forEach((el) => el && obs.observe(el));
-    return () => obs.disconnect();
-  }, [state !== null]);
+    if (active === 'metrics') fetchHeatmaps();
+  }, [active, fetchHeatmaps]);
 
-  const running = state?.running ?? false;
-
-  // Mood derivation: peek at the cell each agent sits on in the integer grid.
-  const grid = state?.grid;
-  const cellUnder = (pos?: [number, number]): number | undefined =>
-    grid && pos ? grid[pos[0]]?.[pos[1]] : undefined;
-
-  const winner: Winner = state?.winner ?? null;
-  const ppoMood = moodFor(cellUnder(state?.ppo.position), running, winner === 'ppo');
-  const dynaqMood = moodFor(cellUnder(state?.dynaq.position), running, winner === 'dynaq');
+  const ready = connected && current && ppo && dynaq && metrics;
+  const winner: Winner = current?.winner ?? null;
 
   return (
     <div className="flex h-screen overflow-hidden bg-bg">
@@ -95,68 +69,84 @@ export default function App() {
           running={running}
           connected={connected}
           busy={busy}
+          episode={current?.episode ?? 0}
+          step={current?.step ?? 0}
+          queueLen={queueLen}
+          theme={theme}
+          onToggleTheme={toggleTheme}
           onStart={start}
           onPause={pause}
-          onReset={reset}
+          onReset={() => reset()}
+          onNewMap={() => reset(Math.floor(Math.random() * 100000))}
           onEvaluate={evaluate}
+          onSpeed={setSpeed}
+          onSave={saveCheckpoint}
+          onLoad={loadCheckpoint}
         />
 
         <main ref={scrollRoot} className="scroll-thin flex-1 overflow-y-auto px-6 py-6">
           <div className="mx-auto flex max-w-[1500px] flex-col gap-8">
             {!connected && <OfflineNotice />}
 
-            {state && (
+            {ready && (
               <>
-                {/* ARENA: PPO panel | grid | Dyna-Q panel */}
+                {/* ARENA */}
                 <Section id="arena" innerRef={register('arena')}>
                   <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)]">
-                    <AgentStatsPanel agent="ppo" ppo={state.ppo} winRate={state.metrics.ppo_win_rate} />
+                    <AgentStatsPanel agent="ppo" ppo={ppo!} winRate={metrics!.ppo_win_rate} />
                     <div className="flex flex-col gap-4">
-                      <EnvironmentGrid
-                        grid={state.grid}
-                        ppoPos={state.ppo.position}
-                        dynaqPos={state.dynaq.position}
-                        ppoMood={ppoMood}
-                        dynaqMood={dynaqMood}
-                        winner={winner}
-                      />
-                      <ActionPanel ppo={state.ppo} dynaq={state.dynaq} />
+                      <EnvironmentGrid frame={current!} winner={winner} />
+                      <ActionPanel ppo={ppo!} dynaq={dynaq!} dqn={dqn} />
                     </div>
-                    <AgentStatsPanel agent="dynaq" dynaq={state.dynaq} winRate={state.metrics.dynaq_win_rate} />
+                    <AgentStatsPanel agent="dynaq" dynaq={dynaq!} winRate={metrics!.dynaq_win_rate} />
                   </div>
+                  {dqn && (
+                    <div className="mt-4">
+                      <AgentStatsPanel agent="dqn" dqn={dqn} winRate={metrics!.dqn_win_rate ?? 0} />
+                    </div>
+                  )}
                 </Section>
 
-                {/* TRAINING: comparison + log */}
+                {/* TRAINING */}
                 <Section id="training" title="Training" innerRef={register('training')}>
                   <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
                     <ComparisonPanel
-                      metrics={state.metrics}
-                      ppoWins={state.ppo.total_wins}
-                      dynaqWins={state.dynaq.total_wins}
+                      metrics={metrics!}
+                      ppoWins={ppo!.total_wins}
+                      dynaqWins={dynaq!.total_wins}
+                      dqnWins={dqn?.total_wins}
                       evalResult={evalResult}
                     />
-                    <TrainingLog logs={state.logs} />
+                    <TrainingLog logs={logs} />
                   </div>
                 </Section>
 
-                {/* METRICS: charts */}
+                {/* METRICS */}
                 <Section id="metrics" title="Comparison Charts" innerRef={register('metrics')}>
-                  <TrainingCharts history={state.history} />
+                  <div className="flex flex-col gap-4">
+                    <TrainingCharts history={history} hasDqn={!!dqn} />
+                    <HeatmapPanel heatmaps={heatmaps} onRefresh={fetchHeatmaps} />
+                  </div>
+                </Section>
+
+                {/* REPLAYS */}
+                <Section id="replays" title="Match Replays" innerRef={register('replays')}>
+                  <ReplayBrowser />
                 </Section>
 
                 {/* SETTINGS */}
                 <Section id="settings" title="Settings" innerRef={register('settings')}>
                   <SettingsPanel
-                    epsilon={state.dynaq.epsilon}
-                    planningSteps={state.dynaq.planning_steps}
-                    qTableSize={state.dynaq.q_table_size}
+                    epsilon={dynaq!.epsilon}
+                    planningSteps={dynaq!.planning_steps}
+                    qTableSize={dynaq!.q_table_size}
                   />
                 </Section>
               </>
             )}
 
             <footer className="pb-2 pt-4 text-center text-xs text-sub">
-              RL Arena · PPO (neural) vs Dyna-Q (tabular) · live competitive training over FastAPI
+              RL Arena · PPO vs Dyna-Q vs DQN · Bomberman · realtime step replay over WebSocket
             </footer>
           </div>
         </main>

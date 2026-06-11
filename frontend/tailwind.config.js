@@ -1,23 +1,31 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
-        primary: '#2f3a55',
-        secondary: '#5c6b8a',
-        bg: '#f5f6f3',
-        ink: '#1a1a1a',
-        sub: '#6e6f73',
-        accent: '#a29f76',
-        line: '#dcdcdc',
+        // Structural colours come from CSS variables so a `.dark` class can
+        // override them globally without touching component class names.
+        primary: 'rgb(var(--c-primary) / <alpha-value>)',
+        secondary: 'rgb(var(--c-secondary) / <alpha-value>)',
+        bg: 'rgb(var(--c-bg) / <alpha-value>)',
+        surface: 'rgb(var(--c-surface) / <alpha-value>)',
+        ink: 'rgb(var(--c-ink) / <alpha-value>)',
+        sub: 'rgb(var(--c-sub) / <alpha-value>)',
+        accent: 'rgb(var(--c-accent) / <alpha-value>)',
+        line: 'rgb(var(--c-line) / <alpha-value>)',
+        // Semantic + agent colours are theme-agnostic (work on light & dark).
         success: '#22c55e',
         danger: '#ef4444',
         warning: '#f59e0b',
-        ppo: '#2563eb',
-        'ppo-soft': '#dbeafe',
-        dynaq: '#7c3aed',
-        'dynaq-soft': '#ede9fe',
+        ppo: '#3b82f6',
+        'ppo-soft': 'rgb(var(--c-ppo-soft) / <alpha-value>)',
+        dynaq: '#a78bfa',
+        'dynaq-soft': 'rgb(var(--c-dynaq-soft) / <alpha-value>)',
+        'dqn-c': '#2dd4bf',
+        'dqn-soft': 'rgb(var(--c-dqn-soft) / <alpha-value>)',
+        box: '#d97706',
         gold: '#eab308',
       },
       fontFamily: {

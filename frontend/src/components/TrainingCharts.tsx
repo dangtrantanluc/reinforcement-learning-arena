@@ -8,15 +8,23 @@ import {
   YAxis,
 } from 'recharts';
 import type { HistoryPoint } from '../types';
+import { useTheme } from '../hooks/useTheme';
 
-const AXIS = { fontSize: 11, fill: '#6e6f73' };
-const GRID = '#ececec';
-const tooltip = {
-  borderRadius: 8,
-  border: '1px solid #dcdcdc',
-  fontSize: 12,
-  boxShadow: '0 4px 16px rgba(47,58,85,0.12)',
-};
+// Chart palette adapts to theme (Recharts takes colours via props, not classes).
+function palette(dark: boolean) {
+  return {
+    AXIS: { fontSize: 11, fill: dark ? '#949caa' : '#6e6f73' },
+    GRID: dark ? '#2a3242' : '#ececec',
+    tooltip: {
+      borderRadius: 8,
+      border: `1px solid ${dark ? '#2a3242' : '#dcdcdc'}`,
+      background: dark ? '#161c29' : '#fff',
+      color: dark ? '#e9edf3' : '#1a1a1a',
+      fontSize: 12,
+      boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+    },
+  };
+}
 
 function ChartCard({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
@@ -34,11 +42,13 @@ function Empty() {
   return <div className="grid h-full place-items-center text-xs text-sub">Start training to populate charts.</div>;
 }
 
-export default function TrainingCharts({ history }: { history: HistoryPoint[] }) {
+export default function TrainingCharts({ history, hasDqn }: { history: HistoryPoint[]; hasDqn?: boolean }) {
   const has = history.length > 0;
+  const { theme } = useTheme();
+  const { AXIS, GRID, tooltip } = palette(theme === 'dark');
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-      <ChartCard title="Reward per Episode" subtitle="PPO vs Dyna-Q cumulative reward">
+      <ChartCard title="Reward per Episode" subtitle="Cumulative reward per agent">
         {has ? (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={history} margin={{ top: 6, right: 8, left: -18, bottom: 0 }}>
@@ -48,6 +58,7 @@ export default function TrainingCharts({ history }: { history: HistoryPoint[] })
               <Tooltip contentStyle={tooltip} />
               <Line type="monotone" dataKey="ppo_reward" name="PPO" stroke="#2563eb" strokeWidth={2} dot={false} />
               <Line type="monotone" dataKey="dynaq_reward" name="Dyna-Q" stroke="#7c3aed" strokeWidth={2} dot={false} />
+              {hasDqn && <Line type="monotone" dataKey="dqn_reward" name="DQN" stroke="#0d9488" strokeWidth={2} dot={false} />}
             </LineChart>
           </ResponsiveContainer>
         ) : <Empty />}
@@ -63,6 +74,7 @@ export default function TrainingCharts({ history }: { history: HistoryPoint[] })
               <Tooltip contentStyle={tooltip} formatter={(v: number) => `${(v * 100).toFixed(0)}%`} />
               <Line type="monotone" dataKey="ppo_win_rate" name="PPO" stroke="#2563eb" strokeWidth={2} dot={false} />
               <Line type="monotone" dataKey="dynaq_win_rate" name="Dyna-Q" stroke="#7c3aed" strokeWidth={2} dot={false} />
+              {hasDqn && <Line type="monotone" dataKey="dqn_win_rate" name="DQN" stroke="#0d9488" strokeWidth={2} dot={false} />}
             </LineChart>
           </ResponsiveContainer>
         ) : <Empty />}

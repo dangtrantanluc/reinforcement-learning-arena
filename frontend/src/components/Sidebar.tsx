@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 
-export type NavKey = 'arena' | 'training' | 'metrics' | 'settings';
+export type NavKey = 'arena' | 'training' | 'metrics' | 'replays' | 'settings';
 
 const Icon = ({ d }: { d: string }) => (
   <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor"
@@ -11,6 +11,7 @@ const NAV: { key: NavKey; label: string; icon: JSX.Element }[] = [
   { key: 'arena', label: 'Arena', icon: <Icon d="M3 3h18v18H3zM3 9h18M9 3v18" /> },
   { key: 'training', label: 'Training', icon: <Icon d="M3 17l6-6 4 4 8-8M14 7h7v7" /> },
   { key: 'metrics', label: 'Metrics', icon: <Icon d="M4 19V5m0 14l5-5 4 4 7-9M4 19h16" /> },
+  { key: 'replays', label: 'Replays', icon: <Icon d="M5 3l14 9-14 9V3z" /> },
   { key: 'settings', label: 'Settings', icon: <Icon d="M12 8a4 4 0 100 8 4 4 0 000-8zM2 12h2m16 0h2M12 2v2m0 16v2" /> },
 ];
 

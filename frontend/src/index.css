@@ -3,8 +3,38 @@
 @tailwind utilities;
 
 @layer base {
+  /* ── Light theme (default) ── */
   :root {
     color-scheme: light;
+    --c-primary: 47 58 85;        /* #2f3a55 */
+    --c-secondary: 92 107 138;    /* #5c6b8a */
+    --c-bg: 245 246 243;          /* #f5f6f3 page background */
+    --c-surface: 255 255 255;     /* card / panel surface */
+    --c-ink: 26 26 26;            /* primary text */
+    --c-sub: 110 111 115;         /* secondary text */
+    --c-accent: 162 159 118;      /* #a29f76 */
+    --c-line: 220 220 220;        /* borders */
+    --c-ppo-soft: 219 234 254;
+    --c-dynaq-soft: 237 233 254;
+    --c-dqn-soft: 204 251 241;
+    --scrollbar: 199 202 209;
+  }
+
+  /* ── Dark theme ── */
+  .dark {
+    color-scheme: dark;
+    --c-primary: 96 132 255;      /* brighter so it pops on dark */
+    --c-secondary: 148 163 184;
+    --c-bg: 13 17 27;             /* deep navy-black page */
+    --c-surface: 22 28 41;        /* card surface */
+    --c-ink: 233 237 243;         /* light text */
+    --c-sub: 148 156 170;         /* muted text */
+    --c-accent: 196 181 120;
+    --c-line: 42 50 66;           /* subtle borders */
+    --c-ppo-soft: 30 58 95;
+    --c-dynaq-soft: 49 35 84;
+    --c-dqn-soft: 19 78 74;
+    --scrollbar: 60 70 90;
   }
 
   html,
@@ -15,12 +45,13 @@
 
   body {
     @apply bg-bg text-ink font-sans antialiased;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 }
 
 @layer components {
   .card {
-    @apply rounded-xl border border-line bg-white shadow-card;
+    @apply rounded-xl border border-line bg-surface shadow-card;
   }
 
   .panel-title {
@@ -34,11 +65,11 @@
   }
 
   .btn-primary {
-    @apply btn bg-primary text-white hover:bg-[#3a4768];
+    @apply btn bg-primary text-white hover:opacity-90;
   }
 
   .btn-ghost {
-    @apply btn border border-line bg-white text-ink hover:bg-bg;
+    @apply btn border border-line bg-surface text-ink hover:bg-bg;
   }
 }
 
@@ -48,7 +79,7 @@
   height: 8px;
 }
 .scroll-thin::-webkit-scrollbar-thumb {
-  background: #c7cad1;
+  background: rgb(var(--scrollbar));
   border-radius: 8px;
 }
 .scroll-thin::-webkit-scrollbar-track {
