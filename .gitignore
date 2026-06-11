@@ -1,0 +1,27 @@
+# ── Frontend ──
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.env
+frontend/.env.local
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+
+# ── Backend (Python) ──
+backend/venv/
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/checkpoints/ppo/*.pt
+backend/checkpoints/dynaq/*.pkl
+backend/logs/*.json
+
+# ── Old single-agent prototype ──
+rl/.venv/
+rl/**/__pycache__/
+rl/checkpoints/*.pt
+rl/logs/*.json
+
+# ── Misc ──
+*.log
+.DS_Store

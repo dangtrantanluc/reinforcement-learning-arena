@@ -1,0 +1,78 @@
+"""Metrics tracker — accumulates per-episode results into rolling rates + history."""
+
+from __future__ import annotations
+
+import json
+from collections import deque
+from typing import Deque, Dict, List, Optional
+
+import numpy as np
+
+
+class MetricsTracker:
+    def __init__(self, window: int = 100) -> None:
+        self.window = window
+        self.episode = 0
+
+        self._winners: Deque[str] = deque(maxlen=window)
+        self._ppo_rewards: Deque[float] = deque(maxlen=window)
+        self._dynaq_rewards: Deque[float] = deque(maxlen=window)
+        self._lengths: Deque[int] = deque(maxlen=window)
+
+        self.history: List[Dict] = []  # one record per episode (for charts)
+
+    def record_episode(
+        self,
+        ppo_reward: float,
+        dynaq_reward: float,
+        winner: Optional[str],
+        length: int,
+        dynaq_epsilon: float,
+        q_table_size: int,
+        ppo_losses: Dict[str, float],
+    ) -> Dict:
+        self.episode += 1
+        self._winners.append(winner or "draw")
+        self._ppo_rewards.append(ppo_reward)
+        self._dynaq_rewards.append(dynaq_reward)
+        self._lengths.append(length)
+
+        record = {
+            "episode": self.episode,
+            "ppo_reward": round(ppo_reward, 2),
+            "dynaq_reward": round(dynaq_reward, 2),
+            "winner": winner or "draw",
+            "ppo_win_rate": round(self.win_rate("ppo"), 3),
+            "dynaq_win_rate": round(self.win_rate("dynaq"), 3),
+            "draw_rate": round(self.win_rate("draw"), 3),
+            "episode_length": length,
+            "ppo_avg_reward": round(self.avg("ppo"), 2),
+            "dynaq_avg_reward": round(self.avg("dynaq"), 2),
+            "dynaq_epsilon": round(dynaq_epsilon, 4),
+            "dynaq_q_table_size": q_table_size,
+            "ppo_policy_loss": round(ppo_losses.get("policy_loss", 0.0), 4),
+            "ppo_value_loss": round(ppo_losses.get("value_loss", 0.0), 4),
+            "ppo_entropy": round(ppo_losses.get("entropy", 0.0), 4),
+        }
+        self.history.append(record)
+        return record
+
+    def win_rate(self, who: str) -> float:
+        if not self._winners:
+            return 0.0
+        return sum(1 for w in self._winners if w == who) / len(self._winners)
+
+    def avg(self, who: str) -> float:
+        buf = self._ppo_rewards if who == "ppo" else self._dynaq_rewards
+        return float(np.mean(buf)) if buf else 0.0
+
+    @property
+    def avg_length(self) -> float:
+        return float(np.mean(self._lengths)) if self._lengths else 0.0
+
+    def save(self, path: str) -> None:
+        with open(path, "w") as f:
+            json.dump(self.history, f, indent=2)
+
+    def reset(self) -> None:
+        self.__init__(self.window)
