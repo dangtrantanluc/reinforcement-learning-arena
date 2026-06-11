@@ -47,10 +47,6 @@ agent-rf/
 └── README.md
 ```
 
-> **Port:** backend RL Arena chạy ở **8001** (port 8000 bị backend Hakuryu Docker chiếm).
-> Frontend gọi **same-origin** qua **Vite proxy** (`/api`, `/ws` → `127.0.0.1:8001`) nên
-> không cần lo CORS hay IPv4/IPv6. Xem `frontend/vite.config.ts`.
-
 ---
 
 ## Chạy nhanh (2 terminal)
@@ -67,9 +63,6 @@ uvicorn src.api.server:app --reload --host 127.0.0.1 --port 8001
 
 Swagger: `http://localhost:8001/docs`.
 
-> **Lưu ý IPv6:** trên máy này `localhost` resolve về `::1`. Vite proxy gọi backend bằng
-> `127.0.0.1` (server-side) nên backend chỉ cần `--host 127.0.0.1`. Nếu bạn muốn browser gọi
-> 8001 *trực tiếp* (không qua proxy), chạy `--host ::` và set `VITE_API_URL`.
 
 ### 2) Frontend — React + Vite
 
