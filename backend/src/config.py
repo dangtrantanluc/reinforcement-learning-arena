@@ -19,15 +19,23 @@ class EnvConfig:
     n_rewards: int = 5
     n_dangers: int = 5
     n_walls: int = 8
+    n_boxes: int = 6             # destructible boxes (Bomberman)
     randomize: bool = True       # random layout each reset (False = fixed map)
     seed: int = 42
+
+    # ── Bomberman (B5) ──
+    enable_bombs: bool = True    # exposes action 5 = PLACE_BOMB
+    bomb_fuse: int = 3           # steps until a bomb explodes
+    bomb_range: int = 2          # blast radius along the 4 axes
+    max_bombs_per_agent: int = 1 # how many live bombs each agent may have
 
     # ── Reward shaping (solo competitive rules) ──
     r_goal_first: float = 50.0   # reach goal before opponent
     r_win_death: float = 20.0    # win because opponent died
     r_reward_item: float = 10.0
+    r_break_box: float = 5.0     # destroying a box with a bomb
     r_danger: float = -10.0
-    r_death: float = -30.0
+    r_death: float = -30.0       # caught in a blast
     r_lose: float = -20.0
     r_step: float = -1.0
     r_closer: float = 1.0
@@ -64,19 +72,53 @@ class DynaQConfig:
     epsilon_end: float = 0.05
     epsilon_decay: float = 0.995
     planning_steps: int = 20
-    n_actions: int = 5
+    n_actions: int = 6   # +PLACE_BOMB
+
+
+# ─────────────────────────────────────────────────────────────
+# DQN (B6 — third agent)
+# ─────────────────────────────────────────────────────────────
+@dataclass
+class DQNConfig:
+    lr: float = 5e-4
+    gamma: float = 0.99
+    epsilon_start: float = 1.0
+    epsilon_end: float = 0.05
+    epsilon_decay: float = 0.995
+    buffer_size: int = 50_000
+    batch_size: int = 64
+    target_update: int = 500      # steps between target-network syncs
+    learn_every: int = 4          # gradient step cadence
+    hidden_sizes: Tuple[int, int] = (128, 128)
+    min_buffer: int = 1000        # warmup before learning
 
 
 # ─────────────────────────────────────────────────────────────
 # Training / IO
 # ─────────────────────────────────────────────────────────────
 @dataclass
+class CurriculumConfig:
+    """Ramp difficulty as training progresses (C10)."""
+    enabled: bool = True
+    warmup_episodes: int = 150     # episodes at easiest setting
+    ramp_episodes: int = 600       # episodes to reach full difficulty
+    # Easy → hard ranges (linearly interpolated by progress).
+    walls: Tuple[int, int] = (2, 10)
+    boxes: Tuple[int, int] = (1, 8)
+    dangers: Tuple[int, int] = (1, 6)
+
+
+@dataclass
 class TrainConfig:
     total_episodes: int = 2000
+    enable_dqn: bool = True        # add the third agent (PPO vs Dyna-Q vs DQN)
     log_dir: str = "logs"
     metrics_file: str = "logs/training_metrics.json"
     ppo_ckpt: str = "checkpoints/ppo/ppo_latest.pt"
     dynaq_ckpt: str = "checkpoints/dynaq/dynaq_qtable.pkl"
+    dqn_ckpt: str = "checkpoints/dqn/dqn_latest.pt"
+    replay_dir: str = "logs/replays"
+    tensorboard_dir: str = "logs/tensorboard"
     save_every: int = 50          # episodes between checkpoints
     device: str = "auto"          # "auto" | "cpu" | "cuda"
     seed: int = 42
@@ -87,6 +129,8 @@ class Config:
     env: EnvConfig = field(default_factory=EnvConfig)
     ppo: PPOConfig = field(default_factory=PPOConfig)
     dynaq: DynaQConfig = field(default_factory=DynaQConfig)
+    dqn: DQNConfig = field(default_factory=DQNConfig)
+    curriculum: CurriculumConfig = field(default_factory=CurriculumConfig)
     train: TrainConfig = field(default_factory=TrainConfig)
 
     def to_dict(self) -> dict:

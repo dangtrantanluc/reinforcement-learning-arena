@@ -12,9 +12,15 @@ frontend/vite.config.d.ts
 backend/venv/
 backend/**/__pycache__/
 backend/**/*.pyc
+backend/.pytest_cache/
 backend/checkpoints/ppo/*.pt
 backend/checkpoints/dynaq/*.pkl
+backend/checkpoints/dqn/*.pt
 backend/logs/*.json
+backend/logs/replays/
+backend/logs/tensorboard/
+backend/logs/tb_test/
+backend/openapi.json
 
 # ── Old single-agent prototype ──
 rl/.venv/

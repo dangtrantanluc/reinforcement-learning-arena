@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+checkpoints/*.pt
+checkpoints/**/*.pt
+checkpoints/**/*.pkl
+logs/*.json
+logs/replays/
+logs/tensorboard/
+tests/

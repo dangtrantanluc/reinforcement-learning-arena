@@ -17,7 +17,7 @@ from ..base_agent import BaseAgent
 from .q_table import QTable
 from .world_model import WorldModel
 
-ACTION_NAMES = ["UP", "DOWN", "LEFT", "RIGHT", "STAY"]
+ACTION_NAMES = ["UP", "DOWN", "LEFT", "RIGHT", "STAY", "BOMB"]
 StateT = Tuple[int, ...]
 
 

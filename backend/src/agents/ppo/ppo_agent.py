@@ -17,7 +17,7 @@ from ..base_agent import BaseAgent
 from .actor_critic import ActorCritic
 from .rollout_buffer import RolloutBuffer
 
-ACTION_NAMES = ["UP", "DOWN", "LEFT", "RIGHT", "STAY"]
+ACTION_NAMES = ["UP", "DOWN", "LEFT", "RIGHT", "STAY", "BOMB"]
 
 
 class PPOAgent(BaseAgent):
@@ -100,6 +100,10 @@ class PPOAgent(BaseAgent):
                 entropy_loss = entropy.mean()
                 loss = actor_loss + cfg.value_coef * critic_loss - cfg.entropy_coef * entropy_loss
 
+                # Skip non-finite updates so divergence can't poison the policy.
+                if not torch.isfinite(loss):
+                    continue
+
                 self.optimizer.zero_grad()
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.net.parameters(), cfg.max_grad_norm)
@@ -110,10 +114,11 @@ class PPOAgent(BaseAgent):
                 ent.append(entropy_loss.item())
 
         self.buffer.clear()
+        safe_mean = lambda xs: float(np.mean(xs)) if xs else 0.0
         self.last_losses = {
-            "policy_loss": float(np.mean(pg)),
-            "value_loss": float(np.mean(vl)),
-            "entropy": float(np.mean(ent)),
+            "policy_loss": safe_mean(pg),
+            "value_loss": safe_mean(vl),
+            "entropy": safe_mean(ent),
         }
         return self.last_losses
 

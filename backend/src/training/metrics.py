@@ -17,6 +17,7 @@ class MetricsTracker:
         self._winners: Deque[str] = deque(maxlen=window)
         self._ppo_rewards: Deque[float] = deque(maxlen=window)
         self._dynaq_rewards: Deque[float] = deque(maxlen=window)
+        self._dqn_rewards: Deque[float] = deque(maxlen=window)
         self._lengths: Deque[int] = deque(maxlen=window)
 
         self.history: List[Dict] = []  # one record per episode (for charts)
@@ -30,11 +31,16 @@ class MetricsTracker:
         dynaq_epsilon: float,
         q_table_size: int,
         ppo_losses: Dict[str, float],
+        dqn_reward: Optional[float] = None,
+        dqn_epsilon: Optional[float] = None,
+        dqn_loss: Optional[float] = None,
     ) -> Dict:
         self.episode += 1
         self._winners.append(winner or "draw")
         self._ppo_rewards.append(ppo_reward)
         self._dynaq_rewards.append(dynaq_reward)
+        if dqn_reward is not None:
+            self._dqn_rewards.append(dqn_reward)
         self._lengths.append(length)
 
         record = {
@@ -54,6 +60,12 @@ class MetricsTracker:
             "ppo_value_loss": round(ppo_losses.get("value_loss", 0.0), 4),
             "ppo_entropy": round(ppo_losses.get("entropy", 0.0), 4),
         }
+        if dqn_reward is not None:
+            record["dqn_reward"] = round(dqn_reward, 2)
+            record["dqn_win_rate"] = round(self.win_rate("dqn"), 3)
+            record["dqn_avg_reward"] = round(self.avg("dqn"), 2)
+            record["dqn_epsilon"] = round(dqn_epsilon or 0.0, 4)
+            record["dqn_loss"] = round(dqn_loss or 0.0, 4)
         self.history.append(record)
         return record
 
@@ -63,7 +75,8 @@ class MetricsTracker:
         return sum(1 for w in self._winners if w == who) / len(self._winners)
 
     def avg(self, who: str) -> float:
-        buf = self._ppo_rewards if who == "ppo" else self._dynaq_rewards
+        buf = {"ppo": self._ppo_rewards, "dynaq": self._dynaq_rewards,
+               "dqn": self._dqn_rewards}.get(who, self._ppo_rewards)
         return float(np.mean(buf)) if buf else 0.0
 
     @property

@@ -1,0 +1,23 @@
+# PPO vs Dyna-Q vs DQN arena — full stack.
+# Ports avoid 8000 (taken by the Hakuryu backend) and 5173 (local Vite dev).
+services:
+  backend:
+    build: ./backend
+    container_name: rl-arena-backend
+    expose:
+      - "8001"            # internal only; the frontend proxies to it
+    ports:
+      - "8011:8001"       # optional host access to the API / Swagger
+    volumes:
+      - ./backend/checkpoints:/app/checkpoints
+      - ./backend/logs:/app/logs
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: rl-arena-frontend
+    depends_on:
+      - backend
+    ports:
+      - "8088:80"         # open http://localhost:8088
+    restart: unless-stopped

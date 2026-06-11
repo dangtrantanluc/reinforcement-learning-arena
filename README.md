@@ -1,35 +1,55 @@
-# RL Arena — PPO vs Dyna-Q Solo
+# RL Arena — PPO vs Dyna-Q vs DQN (Bomberman)
 
-Hai agent reinforcement learning **cạnh tranh trực tiếp trên cùng một map** grid-world
-(hướng tới Bomberman). Cả hai tự implement từ đầu bằng PyTorch / NumPy — **không dùng
-stable-baselines3**.
+**Ba** agent reinforcement learning **cạnh tranh trực tiếp trên cùng một map** Bomberman
+(grid-world có bom/box/explosion). Cả ba tự implement từ đầu bằng PyTorch / NumPy —
+**không dùng stable-baselines3**.
 
 | | Thuật toán | Cách học |
 |---|-----------|----------|
 | 🔵 **PPO** | Proximal Policy Optimization | Neural Actor-Critic, on-policy, GAE + clipped objective |
 | 🟣 **Dyna-Q** | Tabular Q-learning + planning | Q-table + world model, model-based planning |
+| 🟢 **DQN** | Deep Q-Network | Neural, off-policy, experience replay + Double-DQN target |
 
-Frontend React hiển thị **realtime** cả hai agent đua nhau, action probabilities / Q-values,
-biểu đồ so sánh, và training log — poll backend FastAPI mỗi 500ms.
+Frontend React hiển thị **realtime** cả ba agent đua nhau qua **WebSocket** (replay từng
+bước, không nhảy ô), action probabilities / Q-values, biểu đồ so sánh, heatmap, replay
+browser, và bảng tinh chỉnh hyperparameter.
+
+## Tính năng nổi bật
+
+- 🎬 **Step-replay buffer + WebSocket**: backend đẩy từng bước, frontend phát lại ở tốc độ cố
+  định → agent đi từng ô (không còn ảo giác "xuyên tường" do poll thưa).
+- 💣 **Bomberman**: đặt bom (action 5) → đếm giờ → nổ phá box (+5) và **giết đối thủ** (đối
+  thủ chết thì bạn thắng +20).
+- 🟢 **3 thuật toán** cạnh tranh trên cùng map: PPO (on-policy) vs Dyna-Q (tabular) vs DQN (off-policy).
+- 🎛️ **Speed / New Map / Seed / Load-Save checkpoint** ngay trên UI.
+- 📈 **Heatmap** vết chân mỗi agent, **biểu đồ so sánh** (Recharts), **TensorBoard** scalars.
+- 🎞️ **Replay browser**: xem lại từng trận đã đấu, tua tới/lui.
+- ⚙️ **Hyperparameter panel**: chỉnh lr/γ/clip/planning... rồi Apply để train lại.
+- 🎓 **Curriculum learning**: map dễ → khó dần theo số episode.
+- ✅ **CI + unit test** (pytest cho env logic), structured JSON logging + correlationId,
+  TS types sinh tự động từ OpenAPI.
 
 ```
 agent-rf/
 ├── backend/          # Python: env + agents + training + FastAPI
-│   └── src/
-│       ├── env/      # CompetitiveGridEnv, map_generator, reward, state_encoder
-│       ├── agents/   # ppo/  +  dynaq/   (+ base_agent)
-│       ├── training/ # train_solo, evaluate_solo, metrics, checkpoint
-│       └── api/      # server, schemas, training_runner
-├── frontend/         # Vite React app (src/, package.json, …)
+│   ├── src/
+│   │   ├── env/      # CompetitiveGridEnv (Bomberman), map_generator, reward, state_encoder
+│   │   ├── agents/   # ppo/  dynaq/  dqn/   (+ base_agent)
+│   │   ├── training/ # train_solo (SoloTrainer), evaluate_solo, metrics, checkpoint
+│   │   ├── api/      # server, schemas, training_runner (frame buffer, WS, config)
+│   │   └── logging_setup.py
+│   ├── tests/        # smoke_test.py + test_env.py (pytest)
+│   └── Dockerfile
+├── frontend/         # Vite React app (+ Dockerfile, nginx.conf)
+├── docker-compose.yml
+├── .github/workflows/ci.yml
 ├── rl/               # bản single-agent CŨ (prototype, không còn dùng)
-└── README.md         # file này
+└── README.md
 ```
 
-> **Cấu trúc:** `backend/` (Python) và `frontend/` (React) là hai folder con của `agent-rf/`.
-> Frontend cũ (PPO single-agent simulator) đã được refactor thành arena này.
->
-> **Port:** backend RL Arena chạy ở **8001** vì port 8000 đang được backend Hakuryu (Docker)
-> dùng. Frontend mặc định trỏ `localhost:8001` (xem `frontend/.env.example`).
+> **Port:** backend RL Arena chạy ở **8001** (port 8000 bị backend Hakuryu Docker chiếm).
+> Frontend gọi **same-origin** qua **Vite proxy** (`/api`, `/ws` → `127.0.0.1:8001`) nên
+> không cần lo CORS hay IPv4/IPv6. Xem `frontend/vite.config.ts`.
 
 ---
 
@@ -39,16 +59,17 @@ agent-rf/
 
 ```bash
 cd backend
-python -m venv venv
+python3 -m venv venv
 source venv/bin/activate          # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn src.api.server:app --reload --host :: --port 8001
+uvicorn src.api.server:app --reload --host 127.0.0.1 --port 8001
 ```
 
-Backend lên ở `http://localhost:8001` — thử `http://localhost:8001/docs` để xem Swagger.
+Swagger: `http://localhost:8001/docs`.
 
-> Muốn port khác? Chạy `--port <N>` rồi đặt `VITE_API_URL=http://localhost:<N>` trong
-> `frontend/.env` (xem `frontend/.env.example`).
+> **Lưu ý IPv6:** trên máy này `localhost` resolve về `::1`. Vite proxy gọi backend bằng
+> `127.0.0.1` (server-side) nên backend chỉ cần `--host 127.0.0.1`. Nếu bạn muốn browser gọi
+> 8001 *trực tiếp* (không qua proxy), chạy `--host ::` và set `VITE_API_URL`.
 
 ### 2) Frontend — React + Vite
 
@@ -58,8 +79,34 @@ npm install
 npm run dev                        # http://localhost:5173
 ```
 
-Mở `http://localhost:5173`, bấm **Start** ở header → xem hai agent train trực tiếp.
-Nếu backend chưa chạy, UI hiện hướng dẫn khởi động (poll tự kết nối lại).
+Mở **http://localhost:5173**, bấm **Start** → xem 3 agent train trực tiếp.
+
+### Hoặc: Docker Compose (1 lệnh)
+
+```bash
+docker compose up --build
+# Frontend: http://localhost:8088   ·   API: http://localhost:8011/docs
+```
+
+---
+
+## Tests, CI & types
+
+```bash
+# Backend tests
+cd backend && source venv/bin/activate
+python -m pytest tests/ -q          # unit tests (env logic)
+python tests/smoke_test.py          # end-to-end smoke
+
+# Sinh TS types từ OpenAPI (D15)
+python scripts/export_openapi.py
+cd ../frontend && npx openapi-typescript ../backend/openapi.json -o src/types/api.generated.ts
+
+# TensorBoard (C9)
+tensorboard --logdir backend/logs/tensorboard
+```
+
+GitHub Actions (`.github/workflows/ci.yml`) chạy backend tests + frontend typecheck/build mỗi push.
 
 ---
 

@@ -66,7 +66,7 @@ def check_encoders():
     env = CompetitiveGridEnv(EnvConfig(seed=3))
     env.reset(seed=3)
     s = env.get_dynaq_state("dynaq")
-    assert len(s) == 16, f"dynaq state must be 16-tuple, got {len(s)}"
+    assert len(s) == 20, f"dynaq state must be 20-tuple, got {len(s)}"
     assert all(isinstance(x, (int, np.integer)) for x in s)
     print(f"  ✓ encoders OK — dynaq state len={len(s)}")
 
@@ -76,7 +76,7 @@ def check_ppo():
     env = CompetitiveGridEnv(EnvConfig(seed=4))
     obs, _ = env.reset(seed=4)
     cfg = PPOConfig(rollout_steps=128, ppo_epochs=2, batch_size=32)
-    ppo = PPOAgent(ppo_obs_dim(10), 5, cfg, device)
+    ppo = PPOAgent(ppo_obs_dim(10), 6, cfg, device)
     for _ in range(cfg.rollout_steps):
         a, lp, v = ppo.select_action(obs["ppo"])
         nobs, rew, dones, _ = env.step({"ppo": a, "dynaq": int(np.random.randint(5))})
@@ -109,7 +109,7 @@ def check_dynaq():
     dq.decay_epsilon()
     assert dq.q_table_size > 0
     qv = dq.get_q_values(s)
-    assert len(qv) == 5
+    assert len(qv) == 6
     # save/load round-trip
     os.makedirs("checkpoints/dynaq", exist_ok=True)
     p = "checkpoints/dynaq/_smoke.pkl"
@@ -132,7 +132,7 @@ def check_trainer():
         trainer.run_episode()
     state = trainer.live_state()
     assert "ppo" in state and "dynaq" in state and "metrics" in state
-    assert set(state["ppo"]["action_probs"].keys()) == {"UP", "DOWN", "LEFT", "RIGHT", "STAY"}
+    assert set(state["ppo"]["action_probs"].keys()) == {"UP", "DOWN", "LEFT", "RIGHT", "STAY", "BOMB"}
     assert state["dynaq"]["q_table_size"] >= 0
     print(f"  ✓ SoloTrainer OK — ran 3 episodes, ep={trainer.episode}, "
           f"|Q|={trainer.dynaq.q_table_size}")
